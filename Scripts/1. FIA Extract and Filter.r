@@ -3,7 +3,7 @@ library(data.table) #note, version 1.9.4 or higher must be installed, otherwise 
 library(RPostgreSQL)
 library(bit64)
 # library(PEcAn.DB)
-source('../fia_psql/Scripts/Distribute/PSQL_utils.R') #changed to actually find and load this. 
+source('required_products_utilities/PSQL_utils.R') #this will give you the tools needed to work with the PSQL database.
 
 sumNA  = function(x) sum(x,na.rm=T)
 meanNA = function(x) mean(x,na.rm=T)
@@ -25,12 +25,12 @@ dbsettings = list(
 lon.bounds = c(-95,999)
 lat.bounds = c(-999,999)
 
-file.pft = "From_T.Andrews/gcbPFT.csv" #changed to actually find this file within the repo.
+file.pft = " require_products_utilities/gcbPFT.csv" #changed to actually find this file within the repo.
 # file.pft = "~/rykelly/PhaseSpace/gcbPFT.csv"
 
 file.TA = 'From_T.Andrews/ESMraw.rds' #this file doesn't exist in the repo. 
 
-file.out = "mycFIA.out.rds" #changed the name oof the output file. 
+file.out = "mycFIA.out.rds" #changed the name of the output file. 
 
 # -----------------------------
 # Open connection to database
@@ -38,9 +38,12 @@ fia.con = db.open(dbsettings)
 
 # ---------- PLOT & COND DATA
 # --- Query PLOT
+#NOTE: CA has modified this query. 
+# - All design codes in the soils are equivalent to designcd=1. This constraint has been removed. 
+# - All states are allowed. statecd<=56 has been removed. 
 cat("Query PLOT...\n")
 query = paste('SELECT 
-              cn, statecd, prev_plt_cn, remper
+              cn, statecd, prev_plt_cn, remper, lat, lon, elev
               FROM plot WHERE remper>3 AND remper<9.5 AND designcd=1 AND statecd<=56 AND ',
               'lon>', min(lon.bounds),' AND lon<', max(lon.bounds), ' AND ',
               'lat>', min(lat.bounds),' AND lat<', max(lat.bounds))
@@ -52,6 +55,7 @@ setnames(PLOT,"CN","PLT_CN")
 toc()
 
 # Remove states that haven't been resurveyed
+#CA: this is already addressed in the query. These lines do nothing. 
 PLOT[, REMPERTOT := sumNA(REMPER), by=STATECD]
 PLOT = PLOT[ REMPERTOT>10, ]
 
@@ -65,7 +69,7 @@ surv = db.query('SELECT statecd,statenm FROM survey', con=fia.con)
 state.names = surv$statenm[match(states,surv$statecd)]
 
 
-# --- Query COND
+# --- Query COND ~1 minute.
 cat("Query COND...\n")
 query = paste('SELECT 
               plt_cn, condid, stdorgcd
@@ -93,7 +97,7 @@ toc()
 
 
 
-# ---------- RESURVEY DATA
+# ---------- RESURVEY DATA ~12 mins. 
 # --- Query
 cat("Query TREE_GRM_ESTN...\n")
 query = paste('SELECT 
@@ -111,7 +115,7 @@ toc()
 # --- Filtering
 cat("Filtering TREE_GRM_ESTN...\n")
 
-# By plot/cond criteria
+# By plot/cond criteria- 81,736 unique sites
 GRM = GRM[ PLT_CN %in% PC$PLT_CN ]
 
 # Assign GRM$START + GRM$CUT and restrict to cut==0, start>0
@@ -120,7 +124,8 @@ GRM[, REMPER := NULL]
 GRM[, CUT1TPA    := (COMPONENT=="CUT1") * TPAGROW_UNADJ             ]
 GRM[, CUT2TPA    := (COMPONENT=="CUT2") * TPAGROW_UNADJ             ]
 GRM[, CUT        := sumNA(CUT2TPA + CUT1TPA), by=PLT_CN             ]
-GRM = GRM[ START>0 & CUT==0, ]
+GRM = GRM[ START>0 & CUT==0, ] #only include plots that have not been cut- remove ~230k trees. 
+#this reduces GRM table to 71,489 unique sites
 
 # Assign Reversion/Diversion, and exclude plots with either
 GRM[, DIVERSION1TPA  := (COMPONENT=="DIVERSION1") * TPAGROW_UNADJ   ]
@@ -128,18 +133,20 @@ GRM[, DIVERSION2TPA  := (COMPONENT=="DIVERSION2") * TPAGROW_UNADJ   ]
 GRM[, REVERSION1TPA  := (COMPONENT=="REVERSION1") * TPAGROW_UNADJ   ]
 GRM[, REVERSION2TPA  := (COMPONENT=="REVERSION2") * TPAGROW_UNADJ   ]
 GRM[, REDIV          := sumNA(REVERSION2TPA+REVERSION1TPA+DIVERSION2TPA+DIVERSION1TPA), by=PLT_CN]
-GRM = GRM[ REDIV==0, ] 
+GRM = GRM[ REDIV==0, ] #only include plots that have not had diversion/reversion, removes ~50k trees.
+#this reduces GRM table to 68,481 sites. 
 
 # Assign SURVIVORTPA, and remove records from any state with <1000 measured trees
+# CA note- who cares about states w/ less than 1000 trees, why exclude? Just care at the plot level, no?
 GRM[, SURVIVORTPA    := (COMPONENT=="SURVIVOR") * TPAGROW_UNADJ     ]
 GRM[, TPATOT         := sumNA(SURVIVORTPA), by=STATECD              ]
-GRM = GRM[ TPATOT>1000, ]
+GRM = GRM[ TPATOT>1000, ] #this line doesn't actually remove any observations. 
 
 
 # --- Assign additional variables
 cat("Calculating TPA and Diameter...\n")
 # Compute TPA
-GRM[, INGROWTHTPA    := (COMPONENT=="INGROWTH") * TPAGROW_UNADJ     ]
+GRM[, INGROWTHTPA    := (COMPONENT=="INGROWTH")   * TPAGROW_UNADJ   ]
 GRM[, MORTALITY1TPA  := (COMPONENT=="MORTALITY1") * TPAGROW_UNADJ   ]
 GRM[, MORTALITY2TPA  := (COMPONENT=="MORTALITY2") * TPAGROW_UNADJ   ]
 GRM[, MORTALITYTPA   := MORTALITY1TPA + MORTALITY2TPA               ]
@@ -161,7 +168,7 @@ GRM[, DIAmean        := meanNA(DIA_END),   by=PLT_CN                ]  # "DIAend
 GRM.out = GRM[, .(PLT_CN, TRE_CN, PREVTPAsum, TPAsum, PREVDIAmean, DIAmean)]
 
 
-# ---------- TREE
+# ---------- TREE ~13 minutes
 cat("Query TREE...\n")
 # --- Query
 query = paste('SELECT 
@@ -198,8 +205,8 @@ TREE = TREE[ CONmax==1 & INVYR<2014 & STATUSCDmax!=3 & STATUSCD!=0 & RECONCILECD
     # --- Merge in PFTs and mycorrhizal associations
       cat("Merge in PFTs and mycorrhizal associations...\n")
       tic() # ~ 1.5 min
-      MCDPFT = as.data.table(read.csv("From_T.Andrews/gcbPFT.csv", header = TRUE)) 
-      CA_myctype = as.data.table(read.csv("mycorrhizal_SPCD_data.csv",header=TRUE)) #colin loads in mycorrhizal associations
+      MCDPFT = as.data.table(read.csv("required_products_utilities/gcbPFT.csv", header = TRUE)) 
+      CA_myctype = as.data.table(read.csv("required_products_utilities/mycorrhizal_SPCD_data.csv",header=TRUE)) #colin loads in mycorrhizal associations
       CA_myctype = CA_myctype[,c("SPCD","MYCO_ASSO"),with=F] #colin loads in mycorrhizal associations
       TREE = merge(TREE, MCDPFT, all.x=T, by = "SPCD")
       TREE = merge(TREE, CA_myctype, all.x=T, by = "SPCD") #colin merges in mycorrhizal associations
@@ -250,13 +257,6 @@ setnames(ALL, "START", "PREVYR")
 #   ALL = merge(GRM, PC, by='PLT_CN')
 #     setnames(ALL, "START", "PREVYR")
 
-# --- Flag plots that aren't in T. Andrew's file- this doesn't work because the repo provided by R.Kelly doesnt have Trevor's RDS to comapre. 
-#dat.TA = as.data.table(readRDS(file.TA))
-#pcn.TA = as.character(dat.TA$PLT_CN)
-#ALL[, in.TA := 0]
-#ALL[ PLT_CN %in% pcn.TA, in.TA := 1 ]
-
-
 
 # --- Save outputs
 cat("Save...\n")
@@ -268,50 +268,3 @@ toc()
 db.close(fia.con)
 
 print(Sys.time()-bigtime)
-
-# ---------- Additional filtering? Seems unnecessary. 
-# # PREVSTOCKING5mid>0
-# *** This doesn't seem right. PREVSTOCKING5mid==0 for numerous records that have nonzero DIA_BEGIN and start1tpa. This is usually (always?) because they have PREVSTOCKING5=NA. However, since these records clearly had trees at the previous survey, makes no sense to omit them. There are a lot in this category (~1e6). 
-#   ind = ALL[,which(PREVSTOCKING5mid<=0)]
-#   length(ind)
-#   ALL[ind, .(DIA_BEGIN, start1tpa, PREVSTOCKING5, PREVSTOCKING5mid)]
-
-# # PREV_PLT_CN>0
-# *** As above, this seems to rule out records in error. Many records have previous dia/tpa measurements but PREV_PLT_CN=="".
-#   ind = ALL[,which(PREV_PLT_CN<=0)]
-#   length(ind)
-#   ALL[ind, .(DIA_BEGIN, start1tpa, PREV_PLT_CN)]
-
-
-
-
-# ---------- DIAGNOSTICS
-# q = merge(GRM,TREE, by='TRE_CN', select=c("DIA_BEGIN","DIA_END","PREVDIAmean","DIAmean","DIA","PREVDIA","DIA5alive","DIA5meanalive","PREVDIA5alive","PREVDIA5meanalive"))
-# 
-# n=100000
-# plot(q$DIA_BEGIN[1:n], q$PREVDIA[1:n])
-# plot(q$DIA_END[1:n], q$DIA[1:n])
-# plot(q$DIA_BEGIN[1:n], q$PREVDIA5alive[1:n])
-# plot(q$DIA_END[1:n], q$DIA5alive[1:n])
-# plot(q$PREVDIAmean[1:n], q$PREVDIA5meanalive[1:n])
-# plot(q$DIAmean[1:n], q$DIA5meanalive[1:n])
-# 
-# n=100000
-# 
-# hist(q$DIA_BEGIN[1:n]-q$PREVDIA[1:n], 1000)
-# hist(q$DIA_END[1:n]-q$DIA[1:n], 1000)
-# hist(q$DIA_BEGIN[1:n]-q$PREVDIA5alive[1:n], 1000)
-# hist(q$DIA_END[1:n]-q$DIA5alive[1:n], 1000)
-# hist(q$PREVDIAmean[1:n]-q$PREVDIA5meanalive[1:n], 1000)
-# hist(q$DIAmean[1:n]-q$DIA5meanalive[1:n], 1000)
-# 
-# mean(q$DIA_BEGIN[1:n]-q$PREVDIA[1:n], na.rm=T)
-# mean(q$DIA_END[1:n]-q$DIA[1:n], na.rm=T)
-# mean(q$DIA_BEGIN[1:n]-q$PREVDIA5alive[1:n], na.rm=T)
-# mean(q$DIA_END[1:n]-q$DIA5alive[1:n], na.rm=T)
-# mean(q$PREVDIAmean[1:n]-q$PREVDIA5meanalive[1:n], na.rm=T)
-# mean(q$DIAmean[1:n]-q$DIA5meanalive[1:n], na.rm=T)
-# 
-# 
-# 
-# # Note: DIA_END from GRM is the same as DIA from TREE. However, DIA_BEGIN is not necessarily the same as PREVDIA
