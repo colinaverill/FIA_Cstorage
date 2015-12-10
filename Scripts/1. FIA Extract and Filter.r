@@ -26,9 +26,6 @@ lon.bounds = c(-95,999)
 lat.bounds = c(-999,999)
 
 file.pft = " require_products_utilities/gcbPFT.csv" #changed to actually find this file within the repo.
-# file.pft = "~/rykelly/PhaseSpace/gcbPFT.csv"
-
-file.TA = 'From_T.Andrews/ESMraw.rds' #this file doesn't exist in the repo. 
 
 file.out = "mycFIA.out.rds" #changed the name of the output file. 
 

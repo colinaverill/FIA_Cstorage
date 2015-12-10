@@ -74,3 +74,4 @@ allTrees.out<- readRDS('analysis_data/allTrees.rds')
 Soils<- read.csv('FIA_soils/FIAsoil_output_CA.csv')
 Trees.Soils <- merge(allTrees.out,Soils,by = "PLT_CN")
 saveRDS(Trees.Soils,file='analysis_data/Trees.Soils.rds')
+

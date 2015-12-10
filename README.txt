@@ -1,17 +1,17 @@
-This project recreates Travis Andrews' "Empirical Successional Mapping." The purpose was to make it work on a previously generated PSQL database of FIA data (which is easy to update and quick to access), and to simply get familiar with and somewhat clean up Travis' code. That said, the code is conceptually almost all his work. The ESM data can then be translated into inputs for the ED model, with the goal of seeing whether ED is able to reproduce empirical demographic patterns. 
+This project was built by Colin Averill. It pairs soils data to FIA composition and growth data, and bins composition by plant mycorrhizal type. It takes advantage of code written by Trevor Andrews' "Empirical Successional Mapping" and Ryan Kelly's FIA database in PSQL format. Much of Trevor Andrew's original code was modified by Ryan Kelly so that it queried the PSQL FIA database hosted on the BU server. The "required_products_utilities" directory contains some utilities for PSQL to work in R, lists of PFTs and mycorrhizal types by FIA species codes, as well as .bil and .hdr files for PRISM climate products. "FIA_soils" contains the FIA soils products. 
 
-The scripts still reference data files I received from Travis, which are too big to include in this repository. However, they're only used for comparing to my own version of the ESM—they're not needed to reproduce the generation of the ESM from the FIA database.
 
-Obviously, the scripts do need access to an FIA database. There's one on the BU server, or you can see my fia_psql project for more infor on creating one:
+The first script requires access to an FIA database. There's one on the BU server, or you can see Ryan Kelly's fia_psql project for more infor on creating one:
 
   https://github.com/ryankelly-uiuc/fia_psql
 
-Note also that the first script relies on 'PSQL_utils.R', a standalone version of some of PEcAn's DB tools. It would probably work to just load PEcAn library instead, if you have it. Otherwise, the 'PSQL_utils.R' script can be obtained from my the fia_psql repository mentioned above (fia_psql/Scripts/Distribute/PSQL_utils.R).
-
 
 Contents:
-- From_T.Andrews
-  - Some files from Travis, including a species-code-to-PFT mapping table, and a draft of the ESM manuscript. Would also contain raw ESM data he sent me, but as noted above the files are too big for GitHub, and were only needed for sanity-checking my own ESM version the first time around.
+- FIA_soils
+  - FIA soils database in .csv format (they are not very big)
+
+-required_products_utilities
+  - has PSQL_utils.R, which is a standalone version of some of PEcAn's DB tools.
   
 - Scripts
-  - Sequential sqripts for recreating the ESM from FIA data, converting it to ED initial conditions, and then running corresponding ED simulations. 
+  - Sequential scripts to extract FIA data and filtering to isolate forested sites that have no evidence of past cutting/logging, and then calculate growth. Soils scripts calculates soil variables on an aerial basis. There is also a script to extract climate data from PRISM data products. 

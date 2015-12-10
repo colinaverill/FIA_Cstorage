@@ -27,11 +27,9 @@ dbsettings = list(
 #lat.bounds = c(-999,999)
 
 file.pft = "required_products_utilities/gcbPFT.csv" #changed to actually find this file within the repo.
-# file.pft = "~/rykelly/PhaseSpace/gcbPFT.csv"
 
 file.soil = read.csv("FIA_soils/FIAsoil_output_CA.csv")
-
-file.TA = 'From_T.Andrews/ESMraw.rds' #this file doesn't exist in the repo. 
+file.soil$plt_cn <- file.soil$PLT_CN
 
 file.out = "soilC.FIA.out.rds" #changed the name of the output file. 
 
@@ -40,7 +38,7 @@ file.out = "soilC.FIA.out.rds" #changed the name of the output file.
 fia.con = db.open(dbsettings)
 
 # ---------- PLOT & COND DATA
-# --- Query PLOT
+# --- Query PLOT ~ 15 seconds
 #NOTE: CA has modified this query. 
 # - All design codes in the soils are equivalent to designcd=1. This constraint has been removed. 
 # - All states are allowed. statecd<=56 has been removed. 
@@ -55,15 +53,24 @@ setnames(PLOT, toupper(names(PLOT)))
 setnames(PLOT,"CN","PLT_CN")
 toc()
 
-#subset PLOT table so its only observations with soil data. 
+#subset PLOT table so its only observations with soil data. All soil observations included in this. 
 PLOT = PLOT[ PLT_CN %in% file.soil$PLT_CN ]
 
+test<- as.character(c(1:5))
 
 # --- Query COND ~1 minute.
 cat("Query COND...\n")
-query = paste('SELECT 
-              plt_cn, condid, stdorgcd
+query = paste('SELECT plt_cn, condid, stdorgcd 
               FROM cond')
+
+#query = paste('SELECT plt_cn, condid, stdorgcd 
+#              FROM cond 
+#              WHERE plt_cn IN (',paste(shQuote(file.soil$plt_cn, type="cmd"), collapse=", "),')')
+
+#query = paste('SELECT plt_cn, condid, stdorgcd 
+#              FROM cond 
+#              WHERE plt_cn = "2222999010690"')
+
 
 tic() # ~ 15 sec
 COND = as.data.table(db.query(query, con=fia.con))
@@ -73,17 +80,20 @@ toc()
 # Remove all plots with more than 1 condition
 COND[, CONmax := maxNA(CONDID), by=PLT_CN]
 # *** RK: This is slightly wrong. In a few cases plots have CONDID>1, but still only have a single condition. This would work better:
-#     COND[, CONmax2 := .N, by=PLT_CN]
+#COND[, CONmax2 := .N, by=PLT_CN]
 COND = COND[ CONmax==1,]
 
 
 # --- Merge PLOT and COND- this condition filtering reduces sset form 3451 to 2671 observations
+# this reduces us from 3451 to 2671 sites
+#have to deal. all the ones we justed excluded are non-forested cover classes. 
 cat("Merge PLOT and COND ...\n")
 tic()
 PC = merge(COND, PLOT, by="PLT_CN")
 toc()
 
 
+#the GRM table query (really all the queries) could be substantially shortened only querying the 2671 sites with sufficient information. 
 
 # ---------- RESURVEY DATA ~12 mins. 
 # --- Query
@@ -103,21 +113,20 @@ cat("Filtering TREE_GRM_ESTN...\n")
 
 # By plot/cond criteria- 81,736 unique sites - only 1746 unique sites being kept here. This means sites in PC table not in GRM?
 GRM = GRM[ PLT_CN %in% PC$PLT_CN ]
-
 # Assign GRM$START + GRM$CUT and restrict to cut==0, start>0
 GRM[, START      := INVYR - REMPER                                  ]
 GRM[, REMPER := NULL]
 GRM[, CUT1TPA    := (COMPONENT=="CUT1") * TPAGROW_UNADJ             ]
 GRM[, CUT2TPA    := (COMPONENT=="CUT2") * TPAGROW_UNADJ             ]
 GRM[, CUT        := sumNA(CUT2TPA + CUT1TPA), by=PLT_CN             ]
-GRM = GRM[ START>0 & CUT==0, ] #only include plots that have not been cut- remove ~230k trees. 
+#GRM = GRM[ START>0 & CUT==0, ] 
+GRM = GRM[CUT==0, ]
+#only include plots that have not been cut- remove ~230k trees. 
 #this reduces GRM table to 71,489 unique sites
 #724 when we are using the ones in the soil set. 1000 observations lost here. 
-#probably because its getting into REMPER constraint again. 
+#if I remove the START>0 constraint we retaint 1685 of 1746 sites (<100 lost to cutting.) Doing this. 
 
-
-length(unique(GRM$PLT_CN))
-# Assign Reversion/Diversion, and exclude plots with either - this excludes 9 sites. down to 715.  
+# Assign Reversion/Diversion, and exclude plots with either - this excludes 9 sites. down to 1676. 
 GRM[, DIVERSION1TPA  := (COMPONENT=="DIVERSION1") * TPAGROW_UNADJ   ]
 GRM[, DIVERSION2TPA  := (COMPONENT=="DIVERSION2") * TPAGROW_UNADJ   ]
 GRM[, REVERSION1TPA  := (COMPONENT=="REVERSION1") * TPAGROW_UNADJ   ]
@@ -128,10 +137,10 @@ GRM = GRM[ REDIV==0, ] #only include plots that have not had diversion/reversion
 
 # Assign SURVIVORTPA, and remove records from any state with <1000 measured trees
 # CA note- who cares about states w/ less than 1000 trees, why exclude? Just care at the plot level, no?
-GRM[, SURVIVORTPA    := (COMPONENT=="SURVIVOR") * TPAGROW_UNADJ     ]
-GRM[, TPATOT         := sumNA(SURVIVORTPA), by=STATECD              ]
-GRM = GRM[ TPATOT>1000, ] #this line doesn't actually remove any observations. 
-
+#GRM[, SURVIVORTPA    := (COMPONENT=="SURVIVOR") * TPAGROW_UNADJ     ]
+#GRM[, TPATOT         := sumNA(SURVIVORTPA), by=STATECD              ]
+#GRM = GRM[ TPATOT>1000, ] 
+#this moves us from 1676 to 597 observations. Dont do this, keep all the observations that are forested!
 
 # --- Assign additional variables
 cat("Calculating TPA and Diameter...\n")
@@ -154,7 +163,7 @@ GRM[, PREVDIAmean    := meanNA(DIA_BEGIN), by=PLT_CN                ]  # "DIAbeg
 GRM[, DIAmean        := meanNA(DIA_END),   by=PLT_CN                ]  # "DIAendmean"
 
 
-# --- Subset for output
+# --- Subset for output- 1676 sites retained at this point.
 GRM.out = GRM[, .(PLT_CN, TRE_CN, PREVTPAsum, TPAsum, PREVDIAmean, DIAmean)]
 
 
@@ -165,8 +174,7 @@ query = paste('SELECT
               cn, prev_tre_cn, plt_cn, invyr, condid, dia, tpa_unadj, spcd, stocking, statuscd, 
               prevdia, prev_status_cd, p2a_grm_flg, reconcilecd
               FROM tree WHERE 
-              (prevdia>5 OR dia>5) AND (statuscd=1 OR prev_status_cd=1) AND p2a_grm_flg!=\'N\'  AND
-              statecd IN (', paste(states,collapse=','), ')')
+              (prevdia>5 OR dia>5) AND (statuscd=1 OR prev_status_cd=1) AND p2a_grm_flg!=\'N\'')
 
 tic() # ~ 10 min
 TREE = as.data.table(db.query(query, con=fia.con))
@@ -176,9 +184,11 @@ toc()
 # --- Filter TREE
 cat("Filter TREE ...\n")
 # By plot/cond criteria
+test = TREE #save for back comparison if necessary
 TREE = TREE[ PLT_CN %in% PC$PLT_CN ]
 
 # CONDID ("Remove edge effects" --TA)
+#this removes 0 sites. --CA
 TREE[, CONmax := maxNA(CONDID), by=PLT_CN]
 
 # STATUSCD
@@ -188,7 +198,7 @@ TREE[, STATUSCDmax := sumNA(3*as.integer(STATUSCD==3)), by=PLT_CN]
 # RECONCILECD
 TREE[is.na(RECONCILECD), RECONCILECD :=0] # Set NA values to 0 (unused)
 
-# Filter
+# Filter This kills 13 sites --CA
 TREE = TREE[ CONmax==1 & INVYR<2014 & STATUSCDmax!=3 & STATUSCD!=0 & RECONCILECD<=4 ]
 
 
@@ -234,7 +244,7 @@ TREE[PREVDIA5alive>0, PREVSTOCKING5 := PREV_TRE_STOCKING]
 TREE[, PREVSTOCKING5mid := sumNA(PREVSTOCKING5), by=PLT_CN]
 
 
-# ---------- MERGE
+# ---------- MERGE - now 1604 sites make it all the way through filtering, all of which exist in the soil data base. 
 cat("Final merge...\n")
 ALL = merge(GRM, TREE, all.x=T, by='TRE_CN')
 ALL[, c("PLT_CN.x","INVYR.x") := list(NULL,NULL)]
