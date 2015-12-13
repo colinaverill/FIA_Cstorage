@@ -5,7 +5,7 @@ require(raster)
 require(rgdal)
 
 #load data that contains latitude and longitude coordinates.
-trees.soils <- readRDS('analysis_data//Trees.Soils.rds')
+trees.soils <- read.csv('analysis_data/Trees.Soils.csv')
 
 #30 year normal rainfall data from from PRISM
 #NOTE: When loading .bil files, the corresponding .hdr needs to be in the same directory. 
@@ -24,4 +24,4 @@ trees.soils$map <- map
 trees.soils$mat <- mat
 
 #write file output
-write.csv(trees.soils, file='analysis_data/trees.soils.csv')
+write.csv(trees.soils, file='analysis_data/Trees.Soils.csv')

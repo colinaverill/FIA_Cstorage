@@ -6,8 +6,8 @@
 #It saves this information, and then creates a second product that is the subset
 #of plots that can be paired with soils data. 
 
-FIA.out <- readRDS('mycFIA.out.rds')
-names(FIA.out)[names(FIA.out) == 'MYCO_ASSO.x'] <- 'MYCO_ASSO'
+rm(list=ls())
+FIA.out <- readRDS('analysis_data/soilC.FIA.out.rds')
 
 #first calculate diameters of mycorrhizal classes (EM, AM, EITHER, OTHER)
 #at the beginning and end of the measurement period
@@ -65,13 +65,9 @@ allTrees.out$latitude            <- aggregate(FIA.out$LAT         ~ FIA.out$PLT_
 allTrees.out$longitude           <- aggregate(FIA.out$LON         ~ FIA.out$PLT_CN, FUN='median',na.rm=T,na.action=na.pass)[,2]
 allTrees.out$elevation           <- aggregate(FIA.out$ELEV        ~ FIA.out$PLT_CN, FUN='median',na.rm=T,na.action=na.pass)[,2]
 
-#save this output file. Then merge with soil data. save that separately. 
-saveRDS(allTrees.out, file='analysis_data/allTrees.rds')
 
-#merge Trees and Soils, save!
-allTrees.out<- readRDS('analysis_data/allTrees.rds')
-#Only 300 records match. God damn.
-Soils<- read.csv('FIA_soils/FIAsoil_output_CA.csv')
+#pair this with soils data, write output. 
+Soils<- read.csv('analysis_data/FIAsoil_output_CA.csv')
 Trees.Soils <- merge(allTrees.out,Soils,by = "PLT_CN")
-saveRDS(Trees.Soils,file='analysis_data/Trees.Soils.rds')
+write.csv(Trees.Soils,file='analysis_data/Trees.Soils.csv')
 
