@@ -21,6 +21,12 @@ FIA.out$DIA.EITHER     <- ifelse(FIA.out$MYCO_ASSO == 'EITHER', FIA.out$DIA    ,
 FIA.out$PREVDIA.OTHER  <- ifelse((FIA.out$PREVDIA.EM + FIA.out$PREVDIA.AM + FIA.out$PREVDIA.EITHER) == 0, FIA.out$PREVDIA,0)
 FIA.out$DIA.OTHER      <- ifelse((FIA.out$DIA.EM + FIA.out$DIA.AM + FIA.out$DIA.EITHER) == 0, FIA.out$DIA,0)
 
+#get basal area for each tree, classified as EM, AM, EITHER and OTHER.
+FIA.out$BASAL.EM     <- pi*((FIA.out$DIA.EM    /2)^2)
+FIA.out$BASAL.AM     <- pi*((FIA.out$DIA.AM    /2)^2)
+FIA.out$BASAL.EITHER <- pi*((FIA.out$DIA.EITHER/2)^2)
+FIA.out$BASAL.OTHER  <- pi*((FIA.out$DIA.OTHER /2)^2)
+
 #Flag stems as AM, EM, EITHER or OTHER- binary 1 or 0 T/F descriptor. 
 FIA.out$PREVSTEM.EM    <- ifelse(FIA.out$PREVDIA.EM     > 0, 1, 0)
 FIA.out$STEM.EM        <- ifelse(FIA.out$DIA.EM         > 0, 1, 0)
@@ -43,6 +49,12 @@ allTrees.out$PREVDIA.OTHER  <- aggregate(FIA.out$PREVDIA.OTHER  ~ FIA.out$PLT_CN
 allTrees.out$DIA.OTHER      <- aggregate(FIA.out$DIA.OTHER      ~ FIA.out$PLT_CN, FUN='sum',na.rm=T, na.action=na.pass)[,2]
 allTrees.out$PREVDIA.TOT    <- aggregate(FIA.out$PREVDIA        ~ FIA.out$PLT_CN, FUN='sum',na.rm=T, na.action=na.pass)[,2]
 allTrees.out$DIA.TOT        <- aggregate(FIA.out$DIA            ~ FIA.out$PLT_CN, FUN='sum',na.rm=T, na.action=na.pass)[,2]
+#aggregating  data- basal area
+allTrees.out$BASAL.EM     <- aggregate(FIA.out$BASAL.EM     ~ FIA.out$PLT_CN, FUN='sum',na.rm=T, na.action=na.pass)[,2]
+allTrees.out$BASAL.AM     <- aggregate(FIA.out$BASAL.AM     ~ FIA.out$PLT_CN, FUN='sum',na.rm=T, na.action=na.pass)[,2]
+allTrees.out$BASAL.EITHER <- aggregate(FIA.out$BASAL.EITHER ~ FIA.out$PLT_CN, FUN='sum',na.rm=T, na.action=na.pass)[,2]
+allTrees.out$BASAL.OTHER  <- aggregate(FIA.out$BASAL.OTHER  ~ FIA.out$PLT_CN, FUN='sum',na.rm=T, na.action=na.pass)[,2]
+
 #aggregating data- Stem number
 allTrees.out$PREVSTEM.EM        <- aggregate(FIA.out$PREVSTEM.EM        ~ FIA.out$PLT_CN, FUN='sum',na.rm=T, na.action=na.pass)[,2]
 allTrees.out$STEM.EM            <- aggregate(FIA.out$STEM.EM            ~ FIA.out$PLT_CN, FUN='sum',na.rm=T, na.action=na.pass)[,2]
@@ -64,6 +76,7 @@ allTrees.out$TPA                 <- aggregate(FIA.out$TPAsum      ~ FIA.out$PLT_
 allTrees.out$latitude            <- aggregate(FIA.out$LAT         ~ FIA.out$PLT_CN, FUN='median',na.rm=T,na.action=na.pass)[,2]
 allTrees.out$longitude           <- aggregate(FIA.out$LON         ~ FIA.out$PLT_CN, FUN='median',na.rm=T,na.action=na.pass)[,2]
 allTrees.out$elevation           <- aggregate(FIA.out$ELEV        ~ FIA.out$PLT_CN, FUN='median',na.rm=T,na.action=na.pass)[,2]
+allTrees.out$grm.out             <- aggregate(FIA.out$grm.present ~ FIA.out$PLT_CN, FUN='median',na.rm=T,na.action=na.pass)[,2]
 
 
 #pair this with soils data, write output. 

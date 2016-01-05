@@ -15,3 +15,7 @@ Contents:
   
 - Scripts
   - Sequential scripts to extract FIA data and filtering to isolate forested sites that have no evidence of past cutting/logging, and then calculate growth. Soils scripts calculates soil variables on an aerial basis. There is also a script to extract climate data from PRISM data products. 
+
+CURRENT STATUS:
+
+script test1. shows that we lose the entire west coast set of observations when we calculate soil C and N storage on an aerial basis. I need to figure out why this is and get all of those observations back in the data set!

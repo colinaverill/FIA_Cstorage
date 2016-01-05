@@ -84,7 +84,7 @@ COND[, CONmax := maxNA(CONDID), by=PLT_CN] #old RK/TA code
 COND.1 <- subset(COND,COND$CONDID==1)
 COND.old = COND[ CONmax==1,] #old RK/TA code - only these sites would make it previously. 
 
-# --- Merge PLOT and COND- this condition filtering reduces sset form 3451 to 2671 observations
+# --- Merge PLOT and COND- this condition filtering reduces set from 3451 to 2671 observations
 # need to check if my new subset is weird- conmax vector in PC table will tell you this. 
 cat("Merge PLOT and COND ...\n")
 tic()
@@ -193,14 +193,15 @@ test = TREE #save for back comparison if necessary
 TREE = TREE[ PLT_CN %in% PC$PLT_CN ]
 
 # CONDID ("Remove edge effects" --TA)
-#this removes 0 sites. --CA
+# CA This is the same as condition in the condition table
 TREE[, CONmax := maxNA(CONDID), by=PLT_CN]
 
 # STATUSCD
+#this is pulling out trees that have been cut. 
 # *** RK: Next line looks wrong. It's a sum, not max, despite the name. I did rewrite the line but this is equivalent to what Travis had so keeping for now.
 TREE[, STATUSCDmax := sumNA(3*as.integer(STATUSCD==3)), by=PLT_CN]
 
-# RECONCILECD
+# RECONCILECD We only allow reconcilecd 4 and below- avoids shtinking trees, disturbance, etc.
 TREE[is.na(RECONCILECD), RECONCILECD :=0] # Set NA values to 0 (unused)
 
 #This filtering brings us from 3130 to 2725 sites. 
