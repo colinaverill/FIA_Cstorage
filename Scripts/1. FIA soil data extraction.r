@@ -43,7 +43,6 @@ what<- merge(what,depth.mean, by="PLT_CN")
 plot(FF_DEPTH ~ depth.calc, data=what, pch=16, cex=0.5)
 abline(0,1,lwd=3,lty=2,col='purple')
 
-
 #test if you can impute bulk density data from sampling volume information. Works in Mineral horizons.
 bd.test <- subset(soil.chem,soil.chem$LAYER_TYPE=='MIN_1')
 bd.test$bd.calc <- bd.test$OVEN_DRY_SOIL_WT / (181)
