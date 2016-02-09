@@ -126,8 +126,74 @@ mp<- mp + theme(axis.text.y=element_blank(),
                 panel.grid.minor=element_blank())
 mp
 
-#OKAY. YEAH. THOSE WEST COAST FUCKERS ARE TOO LAID BACK TO REPORT BULK DENSITY I GUESS.
+#OKAY. YEAH. THOSE WEST COAST HUMANS ARE TOO LAID BACK TO REPORT BULK DENSITY I GUESS.
 (sum(!is.na(test.map$OVEN_DRY_SOIL_WT)))
 #okay, 1003/1064 report oven dry soil weight, 937 of them have FF_DEPTH. If we knew sampling frame size we could calculate BD. 
 #we don't. we've tried this before. Multiple sizes of sampling frame must have been used. This is why you can back out BD for MS1/2 and ORG1/2 horizons but not forest floor.
 #infuriating. Sent an email to FIA to see if they know anything I don't. 
+
+#okay. Isolate california observations
+west <- subset(test.map,test.map$LAT < 50)
+west <- subset(west, test$LON < -115)
+mp <- ggplot() +   mapWorld
+
+#add points to map
+mp <- mp+ geom_point(aes(x=west$LON, y=west$LAT) ,color='green', size=1) 
+#change up bacground gridlines, labels and colors.
+mp<- mp + theme(axis.text.y=element_blank(),
+                axis.text.x=element_blank(),
+                axis.title.y=element_blank(),
+                axis.title.x=element_blank(),
+                axis.ticks=element_blank(), 
+                panel.background = element_rect(fill='black'),
+                plot.background = element_rect(fill='black'),
+                panel.grid.major=element_blank(),
+                panel.grid.minor=element_blank())
+mp
+
+#about 727 fall in the lat/lon bounds of west coast.
+#what the fuck. This is all CA. I don't know why the command above didn't work. 
+#none of these 727 observations report bulk density. Time to fish for the right correlation. 
+
+#4218/5245 FF observations report bulk density. some of them are crazy high. 
+floor <- soil.chem[soil.chem$LAYER_TYPE %in% c("FF_TOTAL"),]
+hist(floor$BULK_DENSITY)
+
+#calculate bulk density dry mass / vol, where vol = area * depth, assuming frame is a circular bicycle tire with 12 inch diameter. 
+floor$bd.calc <- floor$OVEN_DRY_SOIL_WT / (floor$DEPTH * (15.24^2 * pi))
+
+#plot true bulk density as a function of calculated bulk density. 
+plot(BULK_DENSITY ~ bd.calc,data=floor, pch=16,cex=0.6)
+abline(0,1,lty=2,lwd=2)
+#there seem to be 3-4 sized sampling frames here. 1:1 line, steeper than 1:1 (smaller sampling frame), 1-2 shallower (larger sampling frames). 
+
+#mean bulk density of whole database is ~0.52 g / cm3. 
+mean(floor$BULK_DENSITY,na.rm=T)
+
+#try the bike tire size sampling frame, see if it puts west coast in line. 
+west$bd.calc = west$OVEN_DRY_SOIL_WT / (west$DEPTH * (15.24^2 * pi))
+mean(west$bd.calc,na.rm=T)
+#mean is 0.11. Seems to be too low. 
+
+#try figuring out what the other lines below the 1:1 calculated are. 
+#this is the steepest one. ~17x steeper than bike tire. Prob not the one we looking for
+floor$bd.slope <- floor$BULK_DENSITY / floor$bd.calc
+test<- subset(floor,floor$bd.slope >10)
+plot(BULK_DENSITY ~ bd.calc, data=test, pch=16, cex=0.5)
+abline(0,1,lty=2,lwd=2)
+#this is the steepest line.
+test <- subset(test,test$bd.calc<0.5)
+test <- subset(test,test$BULK_DENSITY < 8)
+plot(BULK_DENSITY ~ bd.calc, data=test, pch=16, cex=0.5)
+summary(lm(BULK_DENSITY~bd.calc -1,data=test))
+abline(lm(BULK_DENSITY~bd.calc -1,data=test),lwd =2)
+
+#try again, looking for a slope greater than 1, but less than 17
+#this one is our best bet. slope = 6.38
+test<- subset(floor,floor$bd.slope<10)
+test<- subset(test,test$bd.slope>3)
+plot(BULK_DENSITY ~ bd.calc, data=test, pch=16, cex=0.4)
+abline(lm(BULK_DENSITY~bd.calc -1,data=test),lwd =2,lty=2)
+summary(lm(BULK_DENSITY~bd.calc -1,data=test))
+
+#none of this is good enough. I need more information. Charlies Hobie Perry has gotten in touch and the people at the FIA are sorting out what is making this happen. 

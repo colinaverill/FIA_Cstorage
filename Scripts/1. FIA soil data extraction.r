@@ -47,7 +47,7 @@ abline(0,1,lwd=3,lty=2,col='purple')
 bd.test <- subset(soil.chem,soil.chem$LAYER_TYPE=='MIN_1')
 bd.test$bd.calc <- bd.test$OVEN_DRY_SOIL_WT / (181)
 plot(BULK_DENSITY~bd.calc, data=bd.test, pch=16, cex=0.5)
-abline(0,1,col='purple',lwd=3,lty=2)
+abline(0,1,col='purple',lwd=1,lty=2)
 
 #test bulk density caclculation with FF_TOTAL observations-
 #doesn't work for organic layer, likely for the same reason as depth. Clearly the sampling frames vary in area. 
@@ -60,7 +60,7 @@ abline(0,1,col='purple',lwd=3,lty=2)
 bd.test3<-subset(soil.chem,soil.chem$LAYER_TYPE=='ORG_1')
 bd.test3$bd.calc<- bd.test3$OVEN_DRY_SOIL_WT / 181
 plot(BULK_DENSITY~bd.calc, data=bd.test3, pch=16, cex=0.5)
-abline(0,1,col='purple',lwd=3,lty=2)
+abline(0,1,col='purple',lwd=1,lty=2)
 
 #based on these comparions I will calculate BD in MIN_1, MIN_2, ORG_1 and ORG_2 if missing, based on the dry soil mass and a 181cm^3 soil core volume. 
 #I will not calculate FF_TOTAL or L_ORG bulk density, as analysis of known data shows a wide spread in volume sampled. 
